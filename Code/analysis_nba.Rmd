@@ -1,0 +1,308 @@
+---
+title: "NBA Player Impact Analysis"
+author: "Simon Zhang"
+output: html_notebook
+---
+
+```{r setup}
+library(dplyr)
+library(readr)
+library(ggplot2)
+library(ggrepel)
+
+# Read cleaned data
+nba <- read_csv(
+  "../Data/processed_data/nba_2025_26_clean.csv",
+  show_col_types = FALSE
+)
+
+nba
+```
+
+
+```{r explore-data}
+nrow(nba)
+
+summary(nba)
+```
+
+```{r preview-data}
+nba |>
+  select(
+    player,
+    team,
+    games,
+    points_per_game,
+    rebounds_per_game,
+    assists_per_game,
+    steals_per_game,
+    blocks_per_game,
+    ts_percent,
+    per,
+    ws,
+    bpm,
+    vorp
+  ) |>
+  head(10)
+```
+
+
+```{r ppg-bpm}
+top_bpm_players <- nba_analysis |>
+  arrange(desc(bpm)) |>
+  slice_head(n = 8)
+
+p1 <- ggplot(
+  nba_analysis,
+  aes(
+    x = points_per_game,
+    y = bpm
+  )
+) +
+  geom_point(
+    alpha = 0.7,
+    size = 2
+  ) +
+  geom_text_repel(
+    data = top_bpm_players,
+    aes(label = player),
+    size = 4,
+    max.overlaps = Inf
+  ) +
+  labs(
+    title = "Scoring vs. Overall Impact",
+    subtitle = "2025–26 NBA Regular Season",
+    x = "Points Per Game",
+    y = "Box Plus/Minus (BPM)"
+  ) +
+  theme_minimal()
+
+p1
+```
+
+Save the figure.
+
+```{r save-ppg-bpm}
+ggsave(
+  filename = "../Figures/ppg_vs_bpm.png",
+  plot = p1,
+  width = 8,
+  height = 6,
+  dpi = 300
+)
+```
+
+
+```{r ts-vorp}
+top_vorp_players <- nba_analysis |>
+  arrange(desc(vorp)) |>
+  slice_head(n = 8)
+
+p2 <- ggplot(
+  nba_analysis,
+  aes(
+    x = ts_percent * 100,
+    y = vorp
+  )
+) +
+  geom_point(
+    alpha = 0.7,
+    size = 2
+  ) +
+  geom_text_repel(
+    data = top_vorp_players,
+    aes(label = player),
+    size = 4,
+    box.padding = 0.4,
+    point.padding = 0.3,
+    max.overlaps = Inf
+  ) +
+  labs(
+    title = "Scoring Efficiency vs. Player Value",
+    subtitle = "2025–26 NBA Regular Season",
+    x = "True Shooting Percentage (%)",
+    y = "Value Over Replacement Player (VORP)"
+  ) +
+  theme_minimal()
+
+p2
+```
+
+Save the figure.
+
+```{r save-ts-vorp}
+ggsave(
+  filename = "../Figures/ts_vs_vorp.png",
+  plot = p2,
+  width = 8,
+  height = 6,
+  dpi = 300
+)
+```
+
+
+
+```{r standardize}
+nba_analysis <- nba_analysis |>
+  mutate(
+    z_pts = as.numeric(scale(points_per_game)),
+    z_reb = as.numeric(scale(rebounds_per_game)),
+    z_ast = as.numeric(scale(assists_per_game)),
+    z_ts = as.numeric(scale(ts_percent)),
+    z_bpm = as.numeric(scale(bpm)),
+    z_vorp = as.numeric(scale(vorp))
+  )
+```
+
+
+```{r impact-score}
+nba_analysis <- nba_analysis |>
+  mutate(
+    impact_score = (
+      z_pts +
+      z_reb +
+      z_ast +
+      z_ts +
+      z_bpm +
+      z_vorp
+    ) / 6
+  )
+```
+
+
+```{r top10}
+top10 <- nba_analysis |>
+  arrange(desc(impact_score)) |>
+  slice_head(n = 10) |>
+  select(
+    player,
+    team,
+    games,
+    points_per_game,
+    rebounds_per_game,
+    assists_per_game,
+    ts_percent,
+    bpm,
+    vorp,
+    impact_score
+  )
+
+top10
+```
+
+```{r impact-bar}
+p3 <- top10 |>
+  ggplot(
+    aes(
+      x = reorder(player, impact_score),
+      y = impact_score
+    )
+  ) +
+  geom_col() +
+  coord_flip() +
+  labs(
+    title = "Top 10 NBA Players by Impact Score",
+    subtitle = "2025–26 NBA Regular Season",
+    x = NULL,
+    y = "Impact Score"
+  ) +
+  theme_minimal()
+
+p3
+```
+
+
+```{r save-impact-bar}
+ggsave(
+  filename = "../Figures/impact_top10.png",
+  plot = p3,
+  width = 8,
+  height = 6,
+  dpi = 300
+)
+```
+
+
+```{r ranking-gap}
+nba_rankings <- nba_analysis |>
+  mutate(
+    scoring_rank = rank(
+      -points_per_game,
+      ties.method = "min"
+    ),
+    
+    impact_rank = rank(
+      -impact_score,
+      ties.method = "min"
+    ),
+    
+    rank_difference = scoring_rank - impact_rank
+  )
+```
+
+
+```{r underrated}
+under_the_radar <- nba_rankings |>
+  arrange(desc(rank_difference)) |>
+  select(
+    player,
+    team,
+    points_per_game,
+    scoring_rank,
+    impact_rank,
+    rank_difference,
+    bpm,
+    vorp,
+    impact_score
+  ) |>
+  slice_head(n = 10)
+
+under_the_radar
+```
+
+# 9. Highest Scorers
+
+For comparison, look at the league's top scorers.
+
+```{r top-scorers}
+top_scorers <- nba_analysis |>
+  arrange(desc(points_per_game)) |>
+  select(
+    player,
+    team,
+    points_per_game,
+    bpm,
+    vorp,
+    impact_score
+  ) |>
+  slice_head(n = 10)
+
+top_scorers
+```
+
+# 10. Correlations
+
+Check how strongly traditional scoring is associated with the advanced impact measures.
+
+```{r correlations}
+cor(
+  nba_analysis$points_per_game,
+  nba_analysis$bpm,
+  use = "complete.obs"
+)
+
+cor(
+  nba_analysis$points_per_game,
+  nba_analysis$vorp,
+  use = "complete.obs"
+)
+
+cor(
+  nba_analysis$points_per_game,
+  nba_analysis$impact_score,
+  use = "complete.obs"
+)
+```
+
+
+
