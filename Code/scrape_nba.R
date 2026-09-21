@@ -9,7 +9,7 @@ advanced_url <- "https://www.basketball-reference.com/leagues/NBA_2026_advanced.
 
 
 raw_data_dir <- file.path(
-  "blog", "posts", "post2", "Data", "raw_data"
+   "Data", "raw_data"
 )
 
 dir.create(

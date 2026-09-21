@@ -1,4 +1,4 @@
-# clean_data.R
+# cleaned_data.R
 # Blog Post 2 — NBA Player Impact Analysis
 
 library(dplyr)
@@ -31,9 +31,7 @@ advanced_file <- file.path(
   "nba_2025_26_advanced_raw.csv"
 )
 
-# --------------------------------------------------
-# 2. Read raw data
-# --------------------------------------------------
+# Read raw data
 
 per_game <- read_csv(
   per_game_file,
@@ -45,9 +43,7 @@ advanced <- read_csv(
   show_col_types = FALSE
 )
 
-# --------------------------------------------------
-# 3. Clean column names
-# --------------------------------------------------
+# ---------------------------------------
 
 per_game <- per_game |>
   clean_names()
@@ -55,10 +51,7 @@ per_game <- per_game |>
 advanced <- advanced |>
   clean_names()
 
-# --------------------------------------------------
-# 4. Remove non-player / invalid rows
-# --------------------------------------------------
-# Remove blank rows, repeated header rows, and the "League Average" summary row.
+# ---------------------------------------
 
 per_game <- per_game |>
   filter(
@@ -74,9 +67,7 @@ advanced <- advanced |>
     player != "League Average"
   )
 
-# --------------------------------------------------
-# 5. Convert relevant columns to numeric
-# --------------------------------------------------
+# ---------------------------------------
 
 per_game <- per_game |>
   mutate(
@@ -98,9 +89,7 @@ advanced <- advanced |>
     )
   )
 
-# --------------------------------------------------
-# 6. Keep variables needed for the analysis
-# --------------------------------------------------
+# ---------------------------------------
 
 per_game <- per_game |>
   select(
@@ -126,18 +115,7 @@ advanced <- advanced |>
     bpm,
     vorp
   )
-
-# --------------------------------------------------
-# 7. Handle traded players
-# --------------------------------------------------
-# Traded players may have one row for each team plus a combined
-# season row such as 2TM or 3TM.
-#
-# If a combined row exists, keep that row.
-# Otherwise, keep the player's single row.
-#
-# coalesce() converts missing team values to an empty string so
-# str_detect() does not return NA.
+# ---------------------------------------
 
 keep_combined_or_first <- function(data) {
   
@@ -161,9 +139,7 @@ keep_combined_or_first <- function(data) {
 per_game <- keep_combined_or_first(per_game)
 advanced <- keep_combined_or_first(advanced)
 
-# --------------------------------------------------
-# 8. Rename variables before merging
-# --------------------------------------------------
+# ---------------------------------------
 
 per_game <- per_game |>
   rename(
@@ -181,9 +157,7 @@ advanced <- advanced |>
     games_advanced = g
   )
 
-# --------------------------------------------------
-# 9. Merge per-game and advanced datasets
-# --------------------------------------------------
+# ---------------------------------------
 
 nba_clean <- per_game |>
   left_join(
@@ -200,39 +174,11 @@ nba_clean <- per_game |>
     by = "player"
   )
 
-# --------------------------------------------------
-# 10. Keep regular contributors
-# --------------------------------------------------
+# ---------------------------------------
 
 nba_clean <- nba_clean |>
   filter(games >= 50)
 
-# --------------------------------------------------
-# 11. Quality checks
-# --------------------------------------------------
-
-duplicate_players <- nba_clean |>
-  count(player) |>
-  filter(n > 1)
-
-if (nrow(duplicate_players) > 0) {
-  warning("Duplicate players remain after cleaning.")
-}
-
-missing_key_stats <- nba_clean |>
-  summarise(
-    missing_per = sum(is.na(per)),
-    missing_ts = sum(is.na(ts_percent)),
-    missing_ws = sum(is.na(ws)),
-    missing_bpm = sum(is.na(bpm)),
-    missing_vorp = sum(is.na(vorp))
-  )
-
-print(missing_key_stats)
-
-# --------------------------------------------------
-# 12. Save processed data
-# --------------------------------------------------
 
 processed_file <- file.path(
   processed_data_dir,
@@ -243,3 +189,5 @@ write_csv(
   nba_clean,
   processed_file
 )
+
+nba_clean
